@@ -2,9 +2,10 @@ import { Hono } from "hono";
 import { cors } from 'hono/cors'
 import { authMiddleware } from "./middleware/auth";
 import users from "./controllers/users";
+import apiKeys from "./controllers/apiKeys";
 
 type Bindings = {
-    AI: Ai
+    AI: AI,
     DB: D1Database
 }
 
@@ -19,12 +20,14 @@ app.use('/*', cors({
     credentials: false,
 }));
 
-// Rotas de usuário não precisam de autenticação
+// Rotas públicas
 app.route("/users", users);
 
 // Rotas que precisam de autenticação
-app.use("/chat/*", authMiddleware);
+app.use("/api-keys/*", authMiddleware);
+app.route("/api-keys", apiKeys);
 
+app.use("/chat/*", authMiddleware);
 app.post("/chat/completions", async (c) => {
     try {
         const body = await c.req.json();

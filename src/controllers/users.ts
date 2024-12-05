@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { sign } from "hono/jwt";
 import { nanoid } from 'nanoid';
 import { hash, compare } from '../utils/crypto';
+import { generateToken } from '../utils/jwt';
 
 type Bindings = {
     DB: D1Database
@@ -11,15 +11,16 @@ const users = new Hono<{ Bindings: Bindings }>();
 
 users.post("/register", async (c) => {
     const { email, password } = await c.req.json();
-    const api_key = nanoid(32);
-    const hashedPassword = await hash(password, 10);
+    const hashedPassword = await hash(password);
+    const id = nanoid();
     
     try {
         await c.env.DB.prepare(
-            "INSERT INTO users (id, email, password, api_key) VALUES (?, ?, ?, ?)"
-        ).bind(nanoid(), email, hashedPassword, api_key).run();
+            "INSERT INTO users (id, email, password) VALUES (?, ?, ?)"
+        ).bind(id, email, hashedPassword).run();
 
-        return c.json({ message: "User created", api_key });
+        const token = await generateToken({ userId: id });
+        return c.json({ message: "User created", token });
     } catch (error) {
         return c.json({ error: "User creation failed" }, 400);
     }
@@ -36,7 +37,8 @@ users.post("/login", async (c) => {
         return c.json({ error: "Invalid credentials" }, 401);
     }
     
-    return c.json({ api_key: user.api_key });
+    const token = await generateToken({ userId: user.id });
+    return c.json({ token });
 });
 
 export default users; 
